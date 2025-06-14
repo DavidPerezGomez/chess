@@ -1,6 +1,5 @@
 from math import floor
 
-from domain.evaluator.simplest.simplest_evaluator import SimplestEvaluator
 from domain.game.model.board import BoardState, get_stating_board
 from domain.game.model.move import Move
 from domain.game.model.square import Square
@@ -10,12 +9,11 @@ from infrastructure.console.mapper.move_mapper import ConsoleMoveMapper
 from infrastructure.console.mapper.piece_mapper import ConsolePieceMapper
 from infrastructure.console.mapper.square_mapper import ConsoleSquareMapper
 
-
 board_mapper = ConsoleBoardStateMapper()
 move_mapper = ConsoleMoveMapper()
 square_mapper = ConsoleSquareMapper()
 piece_mapper = ConsolePieceMapper()
-simplest_evaluator = SimplestEvaluator()
+evaluator = None
 
 
 def _query_origin_square(board_state: BoardState) -> Square:
@@ -99,7 +97,12 @@ def _find_move(moves: list[Move], origin_square: Square, dest_square: Square) ->
 
 def _print_board(board_state: BoardState, turn: float):
     check = board_state.is_in_check()
-    score = simplest_evaluator.evaluate(board_state)
+
+    if evaluator:
+        score = evaluator.evaluate(board_state)
+    else:
+        score = '???'
+
     if board_state.is_stalemate():
         status = 'stalemate'
     elif board_state.cant_checkmate():
