@@ -539,6 +539,9 @@ class BoardState:
             can_castle_short = self._w_castle_short if is_white else self._b_castle_short
             can_castle_long = self._w_castle_long if is_white else self._b_castle_long
 
+            castle_short_rook_square = Square(BoardState.MAX_FILE, BoardState.MIN_RANK if is_white else BoardState.MAX_RANK)
+            castle_long_rook_square = Square(BoardState.MIN_FILE, BoardState.MIN_RANK if is_white else BoardState.MAX_RANK)
+
             castle_short_final_square = Square(BoardState.MAX_FILE - 1, BoardState.MIN_RANK if is_white else BoardState.MAX_RANK)
             castle_long_final_square = Square(BoardState.MIN_FILE + 2, BoardState.MIN_RANK if is_white else BoardState.MAX_RANK)
 
@@ -546,13 +549,13 @@ class BoardState:
             castle_long_squares = [(file, BoardState.MIN_RANK if is_white else BoardState.MAX_RANK) for file in range(BoardState.MIN_FILE + 1, castle_initial_square.file)]
 
             if can_castle_short:
-                rook = self.get_piece_on_square(castle_short_final_square)
+                rook = self.get_piece_on_square(castle_short_rook_square)
                 if rook and rook.type == PieceType.ROOK and rook.is_white == is_white:
                     if not any([self.get_piece_on_square(Square(s[0], s[1])) for s in castle_short_squares]):
                         yield self._generate_move(origin_square, castle_short_final_square, castle_short=True)
 
             if can_castle_long:
-                rook = self.get_piece_on_square(castle_long_final_square)
+                rook = self.get_piece_on_square(castle_long_rook_square)
                 if rook and rook.type == PieceType.ROOK and rook.is_white == is_white:
                     if not any([self.get_piece_on_square(Square(s[0], s[1])) for s in castle_long_squares]):
                         yield self._generate_move(origin_square, castle_long_final_square, castle_long=True)
