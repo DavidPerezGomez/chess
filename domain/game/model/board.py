@@ -78,15 +78,17 @@ class BoardState:
         self._legal_moves = legal_moves
         return legal_moves
 
-    def _get_all_legal_moves(self) -> Generator[Move]:
+    def get_legal_moves_for_piece_in_square(self, square: Square) -> Generator[Move]:
         """
-        Calculates all the possible moves in the position ignoring game-overs
-        :return: generator of possible moves
+        Returns all the legal moves for the piece on the given square
+        :param square: square of the piece
+        :return: generator of legal moves
         """
-        pieces = self.get_all_pieces_by_color(self._white_to_move)
-
-        for piece, square in pieces:
-            yield from self._get_legal_moves_for_piece_in_square(square)
+        piece = self.get_piece_on_square(square)
+        moves = self._get_all_moves_for_piece(piece, square)
+        for move in moves:
+            if self._move_is_legal(move):
+                yield move
 
     def perform_move(self, move: Move, update: bool = False) -> BoardState:
         """
@@ -168,26 +170,6 @@ class BoardState:
         self._reset_calculations()
         return self
 
-    def _set_piece(self, piece: Piece, square: Square):
-        """
-        Sets a piece in the given square, overriding any piece that might already be there.
-        :param piece: the piece
-        :param square: the square
-        """
-        if self._squares.get(square.file) is None:
-            self._squares[square.file] = {}
-
-        self._squares[square.file][square.rank] = piece
-
-    def _remove_piece(self, square: Square):
-        """
-        Removes the piece (if any) from the given square.
-        :param square: the square
-        """
-        del self._squares[square.file][square.rank]
-        if not self._squares[square.file]:
-            del self._squares[square.file]
-
     def get_all_pieces(self) -> Generator[tuple[Piece, Square]]:
         """
         :return: a generator of tuples with all the pieces on the board and the squares they occupy
@@ -217,70 +199,16 @@ class BoardState:
                 except KeyError:
                     continue
 
-    def is_game_over(self):
+    def get_piece_on_square(self, square: Square) -> Piece | None:
         """
-        Calculates if the position is a game over for any reason
-        :return: True if the game is over, False otherwise
+        Returns the piece (if any) on the given square
+        :param square: the square
+        :return: the piece, or None if there is no piece on the square
         """
-        return not self._has_legal_moves() or self.cant_checkmate()
-
-    def is_in_check(self) -> bool:
-        """
-        Calculates if the active player is in check in the position
-        :return: True if the king is in check
-        """
-        if self._is_check is not None:
-            return self._is_check
-
-        check = self._is_in_check(self._white_to_move)
-
-        self._is_check = check
-        return check
-
-    def _is_in_check(self, white: bool) -> bool:
-        """
-        Calculates if a given king is in check in the position
-        :param white: True for the white king, False for black
-        :return: True if the king is in check
-        """
-        square = self._get_king_square(white)
-
-        return self.square_is_under_attack(square, not white)
-
-    def _get_king_square(self, white: bool) -> Square:
-        """
-        Returns the square occupied by the king of the specified color
-        :param white: True for the white king, False for black
-        :return: the square
-        """
-        pieces = self.get_all_pieces_by_color(white)
-        for piece, square in pieces:
-            if piece.type == PieceType.KING:
-                return square
-
-    def is_checkmate(self) -> bool:
-        """
-        Calculates if the position is checkmate
-        :return: True if it's checkmate, False otherwise
-        """
-        return self.is_in_check() and not self._has_legal_moves()
-
-    def is_stalemate(self) -> bool:
-        """
-        Calculates if the position is a stalemate
-        :return: True if stalemated, False otherwise
-        """
-        return not self._has_legal_moves() and not self.is_in_check()
-
-    def cant_checkmate(self) -> bool:
-        """
-        Calculates if the position is a draw due to the inability of either player to deliver checkmate
-        :return: True if checkmate is impossible, False otherwise
-        """
-        w_pieces = [tuple[0] for tuple in self.get_all_pieces_by_color(white=True)]
-        b_pieces = [tuple[0] for tuple in self.get_all_pieces_by_color(white=False)]
-
-        return not self._pieces_can_checkmate(w_pieces) and not self._pieces_can_checkmate(b_pieces)
+        try:
+            return self._squares[square.file][square.rank]
+        except KeyError:
+            return None
 
     def square_is_under_attack(self, square: Square, white: bool) -> bool:
         """
@@ -306,6 +234,101 @@ class BoardState:
 
         return False
 
+    def is_game_over(self) -> bool:
+        """
+        Calculates if the position is a game over for any reason
+        :return: True if the game is over, False otherwise
+        """
+        return not self._has_legal_moves() or self.cant_checkmate()
+
+    def is_in_check(self) -> bool:
+        """
+        Calculates if the active player is in check in the position
+        :return: True if the king is in check
+        """
+        if self._is_check is not None:
+            return self._is_check
+
+        check = self._is_in_check(self._white_to_move)
+
+        self._is_check = check
+        return check
+
+    def is_checkmate(self) -> bool:
+        """
+        Calculates if the position is checkmate
+        :return: True if it's checkmate, False otherwise
+        """
+        return self.is_in_check() and not self._has_legal_moves()
+
+    def is_stalemate(self) -> bool:
+        """
+        Calculates if the position is a stalemate
+        :return: True if stalemated, False otherwise
+        """
+        return not self._has_legal_moves() and not self.is_in_check()
+
+    def cant_checkmate(self) -> bool:
+        """
+        Calculates if the position is a draw due to the inability of either player to deliver checkmate
+        :return: True if checkmate is impossible, False otherwise
+        """
+        w_pieces = [tuple[0] for tuple in self.get_all_pieces_by_color(white=True)]
+        b_pieces = [tuple[0] for tuple in self.get_all_pieces_by_color(white=False)]
+
+        return not self._pieces_can_checkmate(w_pieces) and not self._pieces_can_checkmate(b_pieces)
+
+    def _get_all_legal_moves(self) -> Generator[Move]:
+        """
+        Calculates all the possible moves in the position ignoring game-overs
+        :return: generator of possible moves
+        """
+        pieces = self.get_all_pieces_by_color(self._white_to_move)
+
+        for piece, square in pieces:
+            yield from self.get_legal_moves_for_piece_in_square(square)
+
+    def _set_piece(self, piece: Piece, square: Square):
+        """
+        Sets a piece in the given square, overriding any piece that might already be there.
+        :param piece: the piece
+        :param square: the square
+        """
+        if self._squares.get(square.file) is None:
+            self._squares[square.file] = {}
+
+        self._squares[square.file][square.rank] = piece
+
+    def _remove_piece(self, square: Square):
+        """
+        Removes the piece (if any) from the given square.
+        :param square: the square
+        """
+        del self._squares[square.file][square.rank]
+        if not self._squares[square.file]:
+            del self._squares[square.file]
+
+    def _is_in_check(self, white: bool) -> bool:
+        """
+        Calculates if a given king is in check in the position
+        :param white: True for the white king, False for black
+        :return: True if the king is in check
+        """
+        square = self._get_king_square(white)
+
+        return self.square_is_under_attack(square, not white)
+
+    def _get_king_square(self, white: bool) -> Square:
+        """
+        Returns the square occupied by the king of the specified color
+        :param white: True for the white king, False for black
+        :return: the square
+        """
+        pieces = self.get_all_pieces_by_color(white)
+        for piece, square in pieces:
+            if piece.type == PieceType.KING:
+                return square
+
     def _has_legal_moves(self) -> bool:
         """
         Calculates if the position has possible moves
@@ -316,18 +339,6 @@ class BoardState:
             return True
         except StopIteration:
             return False
-
-    def _get_legal_moves_for_piece_in_square(self, square: Square) -> Generator[Move]:
-        """
-        Returns all the legal moves for the piece on the given square
-        :param square: square of the piece
-        :return: generator of legal moves
-        """
-        piece = self.get_piece_on_square(square)
-        moves = self._get_all_moves_for_piece(piece, square)
-        for move in moves:
-            if self._move_is_legal(move):
-                yield move
 
     def _move_is_legal(self, move: Move) -> bool:
         """
@@ -372,17 +383,6 @@ class BoardState:
         function = fn_map[piece.type]
 
         yield from function(square, piece.is_white)
-
-    def get_piece_on_square(self, square: Square) -> Piece | None:
-        """
-        Returns the piece (if any) on the given square
-        :param square: the square
-        :return: the piece, or None if there is no piece on the square
-        """
-        try:
-            return self._squares[square.file][square.rank]
-        except KeyError:
-            return None
 
     def _get_all_moves_for_pawn(self, origin_square: Square, is_white: bool) -> Generator[Move]:
         """
