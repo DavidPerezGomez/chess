@@ -316,6 +316,9 @@ class BoardState:
         """
         square = self._get_king_square(white)
 
+        if not square:
+            return True
+
         return self.square_is_under_attack(square, not white)
 
     def _get_king_square(self, white: bool) -> Square:
