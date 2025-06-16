@@ -103,6 +103,7 @@ class BoardState:
 
         # move the piece
         piece = self.get_piece_on_square(move.origin_square)
+        captured_piece = self.get_piece_on_square(move.dest_square)
 
         piece_to_set = piece if not move.promotion_piece else move.promotion_piece
         self._remove_piece(move.origin_square)
@@ -145,7 +146,7 @@ class BoardState:
 
         # check castling flags
         if piece.type == PieceType.KING:
-            if self._white_to_move:
+            if piece.is_white:
                 self._w_castle_long = False
                 self._w_castle_short = False
             else:
@@ -153,16 +154,10 @@ class BoardState:
                 self._b_castle_short = False
 
         if piece.type == PieceType.ROOK:
-            if move.origin_square.file > (BoardState.MAX_FILE - BoardState.MIN_FILE) / 2:
-                if self._white_to_move:
-                    self._w_castle_short = False
-                else:
-                    self._b_castle_short = False
-            else:
-                if self._white_to_move:
-                    self._w_castle_long = False
-                else:
-                    self._b_castle_long = False
+            self._check_castle_flags_for_rook(piece, move.origin_square)
+
+        if captured_piece and captured_piece.type == PieceType.ROOK:
+            self._check_castle_flags_for_rook(captured_piece, move.dest_square)
 
         # alternate turn
         self._white_to_move = not self._white_to_move
@@ -595,6 +590,23 @@ class BoardState:
 
                 current_square = next_square
                 steps += 1
+
+    def _check_castle_flags_for_rook(self, rook: Piece, square: Square):
+        """
+        Updates the castle flags if necessary given a rook that was moved from or captured on a given square
+        :param rook: the rook involved with the move
+        :param square: the square that the rook was on
+        """
+        if rook.is_white and square.file == BoardState.MIN_FILE:
+            if square.rank == BoardState.MIN_RANK:
+                self._w_castle_long = False
+            elif square.rank == BoardState.MAX_RANK:
+                self._w_castle_short = False
+        elif not rook.is_white and square.file == BoardState.MAX_FILE:
+            if square.rank == BoardState.MIN_RANK:
+                self._b_castle_long = False
+            elif square.rank == BoardState.MAX_RANK:
+                self._b_castle_short = False
 
     def _reset_calculations(self):
         """
